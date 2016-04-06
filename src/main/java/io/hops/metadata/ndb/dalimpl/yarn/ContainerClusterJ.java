@@ -87,7 +87,6 @@ public class ContainerClusterJ
     session.release(toPersist);
   }
 
-  @Override
   public void removeAll(Collection<Container> toRemove) throws StorageException {
     HopsSession session = connector.obtainSession();
     List<ContainerDTO> toPersist = new ArrayList<ContainerDTO>();

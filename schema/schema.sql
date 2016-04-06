@@ -368,6 +368,16 @@ CREATE TABLE `yarn_delegation_token` (
 PRIMARY KEY (`seq_number`)
 ) ENGINE=ndbcluster DEFAULT CHARSET=latin1$$
 
+delimiter $$
+
+CREATE TABLE `yarn_application_resources` (
+  `inode_id` int(11) NOT NULL,
+  `name` VARCHAR(255) NULL,
+  `allocated_mb` int(11) NULL,
+  `allocated_vcores` int(11) NULL,
+PRIMARY KEY (`inode_id`)
+) ENGINE=ndbcluster DEFAULT CHARSET=latin1$$
+
 
 delimiter $$
 
