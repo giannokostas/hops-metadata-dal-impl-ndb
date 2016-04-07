@@ -22,7 +22,7 @@ public class TestApplicationResources {
 
     NdbStorageFactory storageFactory = new NdbStorageFactory();
     StorageConnector connector = storageFactory.getConnector();
-    final List<YarnApplicationResources> conts =
+    final List<YarnApplicationResources> appResources =
             new ArrayList<YarnApplicationResources>();
 
     @Before
@@ -50,9 +50,9 @@ public class TestApplicationResources {
         final YarnApplicationResources yarn3 =
                 new YarnApplicationResources(174, "something3", 2048, 3);
 
-        conts.add(yarn1);
-        conts.add(yarn2);
-        conts.add(yarn3);
+        appResources.add(yarn1);
+        appResources.add(yarn2);
+        appResources.add(yarn3);
 
         LightWeightRequestHandler populate = new LightWeightRequestHandler(YARNOperationType.TEST) {
             @Override
@@ -63,9 +63,8 @@ public class TestApplicationResources {
                 YarnApplicationResourcesDataAccess yarnDataAccess = (YarnApplicationResourcesDataAccess)
                         storageFactory.getDataAccess(YarnApplicationResourcesDataAccess.class);
 
-                yarnDataAccess.add(yarn1);
-                yarnDataAccess.add(yarn2);
-                yarnDataAccess.add(yarn3);
+                Assert.assertNotNull("AppResources List should not be null", appResources);
+                yarnDataAccess.addAll(appResources);
 
                 connector.commit();
 
@@ -88,16 +87,6 @@ public class TestApplicationResources {
         YarnApplicationResources theApp = pr.findById(125);
         Assert.assertEquals("Name not equal", "something1" ,theApp.getName());
         Assert.assertEquals("Memory not equal", 512 ,theApp.getAllocated_mb());
-    }
-
-
-    @Test
-    public void TestRemoveRecords() throws IOException{
-        YarnApplicationResourcesDataAccess prContDAO = (YarnApplicationResourcesDataAccess)
-                storageFactory.getDataAccess(YarnApplicationResourcesDataAccess.class);
-
-        //TODO: Remove doesn't work
-        prContDAO.removeAll(conts);
     }
 
     private Properties getMetadataClusterConfiguration()

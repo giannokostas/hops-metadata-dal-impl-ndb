@@ -86,13 +86,13 @@ public class YarnApplicationResourcesClusterJ
         }
 
         @Override
-        public void removeAll(Collection<YarnApplicationResources> killed)
-                throws StorageException {
+        public void removeAll(Collection<YarnApplicationResources> killed) throws StorageException {
                 HopsSession session = connector.obtainSession();
                 List<YarnApplicationResourcesDTO> toBeRemoved =
                         new ArrayList<YarnApplicationResourcesDTO>();
                 for (YarnApplicationResources cont : killed) {
-                        toBeRemoved.add(createPersistable(cont, session));
+                       // toBeRemoved.add(createPersistable(cont, session));
+                        toBeRemoved.add(session.newInstance(YarnApplicationResourcesDTO.class));
                 }
 
                 if (!toBeRemoved.isEmpty()) {
@@ -110,12 +110,21 @@ public class YarnApplicationResourcesClusterJ
                 session.release(toAdd);
         }
 
+        @Override
+        public void addAll(Collection<YarnApplicationResources> toBeAdded) throws StorageException{
+                if(!toBeAdded.isEmpty()){
+                    for(YarnApplicationResources res : toBeAdded){
+                            this.add(res);
+                    }
+                }
+        }
+
+
         private YarnApplicationResourcesClusterJ.YarnApplicationResourcesDTO createPersistable(
                 YarnApplicationResources yarnRes,
                 HopsSession session) throws StorageException {
                 YarnApplicationResourcesClusterJ.YarnApplicationResourcesDTO appResDTO = session.newInstance(
                         YarnApplicationResourcesClusterJ.YarnApplicationResourcesDTO.class);
-                //Set values to persist new YarnHistoryPriceDTO
                 appResDTO.setinodeid(yarnRes.getInode_id());
                 appResDTO.setname(yarnRes.getName());
                 appResDTO.setallocatedmb(yarnRes.getAllocated_mb());
