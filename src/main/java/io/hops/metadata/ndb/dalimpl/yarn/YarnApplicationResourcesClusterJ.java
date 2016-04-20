@@ -29,15 +29,10 @@ public class YarnApplicationResourcesClusterJ
         public interface YarnApplicationResourcesDTO{
 
                 @PrimaryKey
-                @Column(name = INODE_ID)
-                int getinodeid();
+                @Column(name = APP_ID)
+                String getAppId();
 
-                void setinodeid(int inodeid);
-
-                @Column(name = NAME)
-                String getname();
-
-                void setname(String name);
+                void setAppId(String appId);
 
                 @Column(name = ALLOCATED_MB)
                 int getallocatedmb();
@@ -54,11 +49,11 @@ public class YarnApplicationResourcesClusterJ
         private final ClusterjConnector connector = ClusterjConnector.getInstance();
 
         @Override
-        public YarnApplicationResources findById(int inodeID) throws StorageException {
+        public YarnApplicationResources findById(String appId) throws StorageException {
                         HopsSession session = connector.obtainSession();
 
                 YarnApplicationResourcesDTO appDTO = session.find(YarnApplicationResourcesDTO.class,
-                        inodeID);
+                        appId);
 
                         if (appDTO != null) {
                                 YarnApplicationResources result = create(appDTO);
@@ -68,9 +63,27 @@ public class YarnApplicationResourcesClusterJ
                 return null;
         }
 
+        @Override
+        public void update(String applicationId, int addMemory, int addVcores) throws StorageException{
+                YarnApplicationResources appToBeAdded;
+                if(findById(applicationId)!= null) {
+                        Map<String, YarnApplicationResources> appToBeRemoved = new HashMap<String, YarnApplicationResources>();
+                        YarnApplicationResources appForUpdate = findById(applicationId);
+                        appToBeRemoved.put(appForUpdate.getAppId(), appForUpdate);
+                        removeAll(appToBeRemoved);
+                        appToBeAdded = new YarnApplicationResources(appForUpdate.getAppId(),
+                                appForUpdate.getAllocated_mb() + addMemory,
+                                appForUpdate.getAllocated_vcores() + addVcores);
+                }
+                else{
+                        appToBeAdded = new YarnApplicationResources(applicationId, addMemory, addVcores);
+                }
+                add(appToBeAdded);
+        }
+
 
         @Override
-        public Map<Integer, YarnApplicationResources> getAll() throws StorageException {
+        public Map<String, YarnApplicationResources> getAll() throws StorageException {
                 HopsSession session = connector.obtainSession();
                 HopsQueryBuilder queryBuilder = session.getQueryBuilder();
                 HopsQueryDomainType<YarnApplicationResourcesDTO> dto =
@@ -79,20 +92,20 @@ public class YarnApplicationResourcesClusterJ
                         session.createQuery(dto);
                 List<YarnApplicationResourcesDTO> resultSet = query.getResultList();
 
-                Map<Integer, YarnApplicationResources> resultMap = createMap(resultSet);
+                Map<String, YarnApplicationResources> resultMap = createMap(resultSet);
                 session.release(resultSet);
 
                 return resultMap;
         }
 
         @Override
-        public void removeAll(Collection<YarnApplicationResources> killed) throws StorageException {
+        public void removeAll(Map<String,YarnApplicationResources> killed) throws StorageException {
                 HopsSession session = connector.obtainSession();
                 List<YarnApplicationResourcesDTO> toBeRemoved =
                         new ArrayList<YarnApplicationResourcesDTO>();
-                for (YarnApplicationResources cont : killed) {
-                       // toBeRemoved.add(createPersistable(cont, session));
-                        toBeRemoved.add(session.newInstance(YarnApplicationResourcesDTO.class));
+                for (YarnApplicationResources app : killed.values()) {
+                        toBeRemoved.add(session.newInstance(YarnApplicationResourcesDTO.class,
+                                app.getAppId()));
                 }
 
                 if (!toBeRemoved.isEmpty()) {
@@ -111,11 +124,10 @@ public class YarnApplicationResourcesClusterJ
         }
 
         @Override
-        public void addAll(Collection<YarnApplicationResources> toBeAdded) throws StorageException{
-                if(!toBeAdded.isEmpty()){
-                    for(YarnApplicationResources res : toBeAdded){
-                            this.add(res);
-                    }
+        public void addAll(Map<String, YarnApplicationResources> toBeAdded) throws StorageException{
+
+                for (Map.Entry<String, YarnApplicationResources> entry : toBeAdded.entrySet()) {
+                        this.add(entry.getValue());
                 }
         }
 
@@ -125,28 +137,26 @@ public class YarnApplicationResourcesClusterJ
                 HopsSession session) throws StorageException {
                 YarnApplicationResourcesClusterJ.YarnApplicationResourcesDTO appResDTO = session.newInstance(
                         YarnApplicationResourcesClusterJ.YarnApplicationResourcesDTO.class);
-                appResDTO.setinodeid(yarnRes.getInode_id());
-                appResDTO.setname(yarnRes.getName());
+                appResDTO.setAppId(yarnRes.getAppId());
                 appResDTO.setallocatedmb(yarnRes.getAllocated_mb());
                 appResDTO.setallocatedvcores(yarnRes.getAllocated_vcores());
 
                 return appResDTO;
         }
 
-        private Map<Integer, YarnApplicationResources> createMap(List<YarnApplicationResourcesDTO> resultSet) {
-                Map<Integer, YarnApplicationResources> resultMap = new HashMap<Integer, YarnApplicationResources>();
+        private Map<String, YarnApplicationResources> createMap(List<YarnApplicationResourcesDTO> resultSet) {
+                Map<String, YarnApplicationResources> resultMap = new HashMap<String, YarnApplicationResources>();
                 YarnApplicationResources yarnApp;
 
                 for (YarnApplicationResourcesDTO dto : resultSet) {
                         yarnApp = create(dto);
-                        resultMap.put(dto.getinodeid(), yarnApp);
+                        resultMap.put(dto.getAppId(), yarnApp);
                 }
 
                 return resultMap;
         }
 
         private YarnApplicationResources create(YarnApplicationResourcesDTO dto) {
-                return new YarnApplicationResources(dto.getinodeid(),
-                        dto.getname(), dto.getallocatedmb(), dto.getallocatedvcores());
+                return new YarnApplicationResources(dto.getAppId(), dto.getallocatedmb(), dto.getallocatedvcores());
         }
 }

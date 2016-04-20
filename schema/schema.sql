@@ -371,11 +371,10 @@ PRIMARY KEY (`seq_number`)
 delimiter $$
 
 CREATE TABLE `yarn_application_resources` (
-  `inode_id` int(11) NOT NULL,
-  `name` VARCHAR(255) NULL,
+  `app_id` VARCHAR(255) NULL,
   `allocated_mb` int(11) NULL,
   `allocated_vcores` int(11) NULL,
-PRIMARY KEY (`inode_id`)
+PRIMARY KEY (`app_id`)
 ) ENGINE=ndbcluster DEFAULT CHARSET=latin1$$
 
 
@@ -1211,3 +1210,12 @@ CREATE TABLE `yarn_cs_leaf_queue_pending_apps` (
   `path` varchar(200) NOT NULL,
   PRIMARY KEY (`app_attempt_id`))
 ENGINE = ndbcluster PARTITION BY KEY(app_attempt_id)$$
+
+delimiter $$
+
+CREATE TABLE `yarn_just_finished_containers` (
+  `containerid` varchar(200) NOT NULL,
+  `appattemptid` varchar(200) NOT NULL,
+  `container` varbinary(1000) NOT NULL,
+  PRIMARY KEY (`containerid`,`appattemptid`))
+ENGINE = ndbcluster PARTITION BY KEY(`appattemptid`)$$

@@ -7,14 +7,11 @@ import io.hops.metadata.yarn.dal.util.YARNOperationType;
 import io.hops.metadata.yarn.entity.YarnApplicationResources;
 import io.hops.transaction.handler.LightWeightRequestHandler;
 import io.hops.transaction.handler.RequestHandler;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -22,11 +19,25 @@ public class TestApplicationResources {
 
     NdbStorageFactory storageFactory = new NdbStorageFactory();
     StorageConnector connector = storageFactory.getConnector();
-    final List<YarnApplicationResources> appResources =
-            new ArrayList<YarnApplicationResources>();
+    final Map<String, YarnApplicationResources> appResources =
+            new HashMap<String, YarnApplicationResources>();
+    final Map<String, YarnApplicationResources> appToBeRemoved =
+            new HashMap<String, YarnApplicationResources>();
 
     @Before
-    public void setup() throws IOException{
+    public void setUp() throws IOException{
+
+        final YarnApplicationResources yarnResource_1 =
+                new YarnApplicationResources("app_id_1", 1024, 1);
+        final YarnApplicationResources yarnResource_2 =
+                new YarnApplicationResources("app_id_2", 1024, 1);
+        final YarnApplicationResources yarnResource_3 =
+                new YarnApplicationResources("app_id_3", 2048, 2);
+
+        appResources.put("app_id_1", yarnResource_1);
+        appResources.put("app_id_2", yarnResource_2);
+        appResources.put("app_id_3", yarnResource_3);
+
         storageFactory.setConfiguration(getMetadataClusterConfiguration());
         RequestHandler.setStorageConnector(connector);
         LightWeightRequestHandler setRMDTMasterKeyHandler
@@ -41,18 +52,39 @@ public class TestApplicationResources {
         setRMDTMasterKeyHandler.handle();
     }
 
+    @After
+    public void tearDown() throws IOException {
+        LightWeightRequestHandler populate = new LightWeightRequestHandler(YARNOperationType.TEST) {
+            @Override
+            public Object performTask() throws IOException {
+                connector.beginTransaction();
+                connector.writeLock();
+
+                YarnApplicationResourcesDataAccess pr = (YarnApplicationResourcesDataAccess)
+                        storageFactory.getDataAccess(YarnApplicationResourcesDataAccess.class);
+
+                Map<String, YarnApplicationResources> allRecords = pr.getAll();
+
+                pr.removeAll(allRecords);
+                connector.commit();
+
+                return null;
+            }
+        };
+
+        populate.handle();
+
+        LightWeightRequestHandler queryCont = new QueryAppResources(YARNOperationType.TEST);
+
+        Map<Integer, YarnApplicationResources> queryResult =
+                (Map<Integer, YarnApplicationResources>) queryCont.handle();
+
+        Assert.assertEquals("After remove - records should be zero: ", 0, queryResult.size());
+
+    }
+
     @Test
     public void testApplicationResource() throws IOException{
-        final YarnApplicationResources yarn1 =
-                new YarnApplicationResources(125, "something1", 512, 1);
-        final YarnApplicationResources yarn2 =
-                new YarnApplicationResources(163, "something2", 1024, 2);
-        final YarnApplicationResources yarn3 =
-                new YarnApplicationResources(174, "something3", 2048, 3);
-
-        appResources.add(yarn1);
-        appResources.add(yarn2);
-        appResources.add(yarn3);
 
         LightWeightRequestHandler populate = new LightWeightRequestHandler(YARNOperationType.TEST) {
             @Override
@@ -76,18 +108,48 @@ public class TestApplicationResources {
 
         LightWeightRequestHandler queryCont = new QueryAppResources(YARNOperationType.TEST);
 
-        Map<Integer, YarnApplicationResources> queryResult =
-                (Map<Integer, YarnApplicationResources>) queryCont.handle();
-
-        Assert.assertEquals("should be 3", 3, queryResult.size());
+        Map<String, YarnApplicationResources> queryResult =
+                (Map<String, YarnApplicationResources>) queryCont.handle();
 
         YarnApplicationResourcesDataAccess pr = (YarnApplicationResourcesDataAccess)
                 storageFactory.getDataAccess(YarnApplicationResourcesDataAccess.class);
 
-        YarnApplicationResources theApp = pr.findById(125);
-        Assert.assertEquals("Name not equal", "something1" ,theApp.getName());
-        Assert.assertEquals("Memory not equal", 512 ,theApp.getAllocated_mb());
+        YarnApplicationResources theApp = pr.findById("app_id_1");
+        Assert.assertEquals("Name not equal: ", "app_id_1" ,theApp.getAppId());
+        Assert.assertEquals("Memory for app_id_1 not equal: ", 1024, theApp.getAllocated_mb());
+        Assert.assertEquals("Vcores for app_id_1 not equal: ", 1, theApp.getAllocated_vcores());
     }
+
+    @Test
+    public void TestUpdate() throws IOException {
+        LightWeightRequestHandler populate = new LightWeightRequestHandler(YARNOperationType.TEST) {
+            @Override
+            public Object performTask() throws IOException {
+                connector.beginTransaction();
+                connector.writeLock();
+
+                YarnApplicationResourcesDataAccess yarnDataAccess = (YarnApplicationResourcesDataAccess)
+                        storageFactory.getDataAccess(YarnApplicationResourcesDataAccess.class);
+
+                yarnDataAccess.update("app_id_1", 1024, 1);
+                connector.commit();
+
+                return null;
+            }
+        };
+
+        populate.handle();
+
+        YarnApplicationResourcesDataAccess pr = (YarnApplicationResourcesDataAccess)
+                storageFactory.getDataAccess(YarnApplicationResourcesDataAccess.class);
+
+        YarnApplicationResources theApp = pr.findById("app_id_1");
+        Assert.assertEquals("After Update - Memory for app_id_1 not equal: ", 2048, theApp.getAllocated_mb());
+        Assert.assertEquals("After Update - Vcores for app_id_1 not equal: ", 2, theApp.getAllocated_vcores());
+
+
+    }
+
 
     private Properties getMetadataClusterConfiguration()
             throws IOException {
@@ -113,7 +175,7 @@ public class TestApplicationResources {
             YarnApplicationResourcesDataAccess prContDAO = (YarnApplicationResourcesDataAccess)
             storageFactory.getDataAccess(YarnApplicationResourcesDataAccess.class);
 
-            Map<String, YarnApplicationResources> result = prContDAO.getAll();
+            Map<Integer, YarnApplicationResources> result = prContDAO.getAll();
 
             connector.commit();
 
